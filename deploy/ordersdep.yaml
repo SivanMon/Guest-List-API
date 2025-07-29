@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ordersdep
+  labels:
+    app: orders-dep
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      the-app-is: orders-pod
+  template:
+    metadata:
+      labels:
+        the-app-is: orders-pod
+    spec:
+      containers:
+      - name: orderscont
+        image: yuvalshaul/orders:one
+ 
