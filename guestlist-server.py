@@ -17,17 +17,17 @@ def get_all_guests():
     return all_guests
 
 @app.route('/guests', methods=['POST'])
-def add_new_guest():     #  Details: "prod", "quantity", but no id
+def add_new_guest():     #  Details: 'firstname', 'surname', 'quantity', 'phone', 'email'
     try:
         guest_details = request.get_json()
 
-        # ולידציה
-        required_fields = ['firstname', 'surname', 'quantity', 'phone', 'email']
+        # validating that all fields are filled.
+        required_fields = ['firstname', 'surname', 'quantity', 'phone', 'email', 'id']
         for field in required_fields:
             if field not in guest_details:
                 return {"error": f"Missing field: {field}"}, 400
 
-        # בדיקת כמות
+        # make sure that the quantity is a positive number.
         try:
             quantity = int(guest_details['quantity'])
             if quantity <= 0:
@@ -35,7 +35,7 @@ def add_new_guest():     #  Details: "prod", "quantity", but no id
         except ValueError:
             return {"error": "Quantity must be a number"}, 400
 
-# בדיקת טלפון ישראלי
+# validating that the phone number is Israeli (10 digits, starts with 0, only numbers)
         try:
             phone = guest_details['phone']
 
@@ -53,20 +53,21 @@ def add_new_guest():     #  Details: "prod", "quantity", but no id
         except Exception as e:
             return {"error": "Invalid phone format"}, 400
 
-        # בדיקת כפילות
-        if guest_details in all_guests.values():
+        # checking if guest is already exists
+        if guest_details['id'] in all_guests(id):
             return {"error": "Guest already exists"}, 409
 
-        new_id = str(uuid.uuid4())
-        guest_details['id'] = new_id
-        all_guests[new_id] = guest_details
+        seq_num = str(uuid.uuid4())
+        guest_details['seq_num'] = seq_num
+        all_guests[seq_num] = guest_details
 
         logging.info(f"New guest created: {guest_details}")
 
         return {
             "message": "Guest created successfully",
             "guest": {
-                "id": new_id,
+                "seq_num": seq_num,
+                "id" : guest_details['id'],
                 "firstname": guest_details['firstname'],
                 "surname": guest_details['surname'],
                 "phone": guest_details['phone'],
