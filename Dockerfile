@@ -1,13 +1,22 @@
-FROM alpine:3.20
-RUN apk update
-RUN apk add python3
-RUN apk add py3-pip
-WORKDIR /guestslist
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements and install dependencies
 COPY requirements.txt .
-COPY guestlist-server.py .
-RUN python3 -m venv guestlistenv
-ENV PATH="/guestslist/guestlistenv/bin:$PATH"
-RUN pip install -r requirements.txt
-CMD ["python3", "guestlist-server.py"]
+RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy application files
+COPY guestlist-server.py ./guestlist-server.py
+COPY index.html ./index.html
 
+# Expose port
+EXPOSE 1111
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:1111/health || exit 1
+
+# Run the application
+CMD ["python", "guestlist-server.py"]
