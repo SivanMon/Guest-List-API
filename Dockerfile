@@ -8,7 +8,7 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY guestlist-server-fixed.py ./guestlist-server.py
+COPY guestlist-server.py ./guestlist-server.py
 COPY index.html ./index.html
 
 # Expose port
