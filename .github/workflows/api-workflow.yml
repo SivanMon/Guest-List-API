@@ -102,10 +102,11 @@ jobs:
         run: |
           docker run -d \
             --name guestlist-test \
+            --add-host=host.docker.internal:host-gateway \
             -p 1111:1111 \
             -e AWS_REGION="${AWS_REGION}" \
             -e DDB_TABLE="${DDB_TABLE}" \
-            -e DDB_ENDPOINT_URL="${DDB_ENDPOINT_URL}" \
+            -e DDB_ENDPOINT_URL="http://host.docker.internal:8000" \
             -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
             -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
             -e AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}" \
