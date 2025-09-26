@@ -132,7 +132,7 @@ jobs:
           
           # create unique test data
           TIMESTAMP=$(date +%s)
-          TEST_ID="TEST${TIMESTAMP}"
+          TEST_ID="111111111"
           
           response=$(curl -s -w "\n%{http_code}" \
             -X POST http://localhost:1111/guests \
