@@ -213,14 +213,27 @@ jobs:
           username: ${{ env.DOCKERHUB_USER }}
           password: ${{ env.DOCKERHUB_TOKEN }}
 
-      - name: Compute user tag
-        id: usertag
+      - name: Compute env tag
+        id: envtag
         shell: bash
         run: |
           set -euo pipefail
-          # Lowercase + keep safe chars only
-          user_tag="$(echo "${GITHUB_ACTOR}" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]_.-')"
-          echo "user_tag=${user_tag}" >> $GITHUB_OUTPUT
+          branch="${GITHUB_REF_NAME}"
+
+          if [ "$branch" = "main" ]; then
+            tag="latest"
+          elif [ "$branch" = "staging" ]; then
+            tag="staging"
+          elif [ "$branch" = "dev" ]; then
+            tag="dev"
+          elif [[ "$branch" == *-feature* ]]; then
+            tag="student-feature"
+          else
+            # fallback if someone creates a random branch
+            tag="dev"
+          fi
+
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Push image to Docker Hub
         uses: docker/build-push-action@v6
@@ -228,9 +241,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.DOCKERHUB_USER }}/${{ env.IMAGE_NAME }}:${{ steps.tags.outputs.tag }}
-            ${{ steps.tags.outputs.latest_tag && format('{0}/{1}:latest', env.DOCKERHUB_USER, env.IMAGE_NAME) || '' }}
-            ${{ github.ref_name != 'main' && format('{0}/{1}:{2}', env.DOCKERHUB_USER, env.IMAGE_NAME, steps.usertag.outputs.user_tag) || '' }}
+            ${{ env.DOCKERHUB_USER }}/${{ env.IMAGE_NAME }}:${{ steps.envtag.outputs.tag }}
+            ${{ env.DOCKERHUB_USER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
           cache-from: type=gha
           cache-to: type=gha,mode=max
