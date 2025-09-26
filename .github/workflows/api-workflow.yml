@@ -226,10 +226,16 @@ jobs:
             tag="staging"
           elif [ "$branch" = "dev" ]; then
             tag="dev"
-          elif [[ "$branch" == *-feature* ]]; then
-            tag="student-feature"
+          elif [[ "$branch" == sivan-feature* ]]; then
+            tag="sivan-feature"
+          elif [[ "$branch" == dvir-feature* ]]; then
+            tag="dvir-feature"
+          elif [[ "$branch" == gili-feature* ]]; then
+            tag="gili-feature"
+          elif [[ "$branch" == sahar-feature* ]]; then
+            tag="sahar-feature"
           else
-            # fallback if someone creates a random branch
+            # fallback
             tag="dev"
           fi
 
