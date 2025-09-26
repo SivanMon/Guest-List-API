@@ -98,6 +98,11 @@ jobs:
           print("Table ready.")
           PY
 
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
       - name: Start API container (wired to local DynamoDB)
         run: |
           docker run -d \
@@ -141,6 +146,8 @@ jobs:
       - name: Test POST /guests
         id: post
         run: |
+          echo "Testing POST /guests..."
+          TEST_ID="111111111"
           resp=$(curl -s -w "\n%{http_code}" -X POST http://127.0.0.1:1111/guests \
             -H "Content-Type: application/json" \
             -d '{
@@ -149,23 +156,21 @@ jobs:
               "quantity": "2",
               "phone": "0541234567",
               "email": "ci@test.com",
-              "id": "111111111"
+              "id": "'${TEST_ID}'"
             }')
+
           code=$(echo "$resp" | tail -1)
           body=$(echo "$resp" | head -n -1)
+
           if [ "$code" = "201" ] || [ "$code" = "200" ]; then
             echo "✓ POST /guests passed"
-            seq=$(python - <<'PY'
-            import sys, json
-            data = json.loads(sys.stdin.read())
-            print(data.get("guest", {}).get("seq_num", ""))
-            PY
-            <<<"$body")
-            if [ -z "$seq" ]; then
-              echo "Could not parse seq_num from: $body"
+            seq_num=$(echo "$body" | jq -r '.guest.seq_num // empty')
+            if [ -z "$seq_num" ] || [ "$seq_num" = "null" ]; then
+              echo "Could not parse seq_num from response:"
+              echo "$body"
               exit 1
             fi
-            echo "seq_num=$seq" >> $GITHUB_OUTPUT
+            echo "seq_num=$seq_num" >> $GITHUB_OUTPUT
           else
             echo "✗ POST /guests failed (HTTP $code)"
             echo "Response: $body"
