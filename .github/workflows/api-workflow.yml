@@ -45,10 +45,17 @@ jobs:
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Ensure jq and awscli are available
+      - name: Install jq + unzip
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq awscli
+          sudo apt-get install -y jq unzip
+
+      - name: Install AWS CLI v2 (official)
+        run: |
+          curl -sSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
+          aws --version
 
       - name: Create image tag
         id: tags
