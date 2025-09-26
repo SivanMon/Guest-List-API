@@ -220,26 +220,25 @@ jobs:
           set -euo pipefail
           branch="${GITHUB_REF_NAME}"
 
-          if [ "$branch" = "main" ]; then
-            tag="latest"
-          elif [ "$branch" = "staging" ]; then
-            tag="staging"
-          elif [ "$branch" = "dev" ]; then
-            tag="dev"
-          elif [[ "$branch" == sivan-feature* ]]; then
-            tag="sivan-feature"
-          elif [[ "$branch" == dvir-feature* ]]; then
-            tag="dvir-feature"
-          elif [[ "$branch" == gili-feature* ]]; then
-            tag="gili-feature"
-          elif [[ "$branch" == sahar-feature* ]]; then
-            tag="sahar-feature"
-          else
-            # fallback
-            tag="dev"
-          fi
+          case "$branch" in
+            main)    tag="latest" ;;
+            staging) tag="staging" ;;
+            dev)     tag="dev" ;;
+            sivan-feature*|dvir-feature*|gili-feature*|sahar-feature*)
+                    # take the name before first '-' and add '-feature'
+                    prefix="${branch%%-*}"
+                    tag="${prefix}-feature"
+                    ;;
+            *)       tag="dev" ;;  # safe fallback
+          esac
 
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "Selected tag: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Assert env tag computed
+        run: |
+          test -n "${{ steps.envtag.outputs.tag }}" || (echo "ERROR: env tag is empty"; exit 1)
+
 
       - name: Push image to Docker Hub
         uses: docker/build-push-action@v6
@@ -247,8 +246,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.DOCKERHUB_USER }}/${{ env.IMAGE_NAME }}:${{ steps.envtag.outputs.tag }}
-            ${{ env.DOCKERHUB_USER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            giligalili/guestlistapi:${{ steps.envtag.outputs.tag }}
+            giligalili/guestlistapi:${{ github.sha }}
 
           cache-from: type=gha
           cache-to: type=gha,mode=max
