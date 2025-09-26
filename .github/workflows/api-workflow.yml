@@ -231,5 +231,8 @@ jobs:
             ${{ env.DOCKERHUB_USER }}/${{ env.IMAGE_NAME }}:${{ steps.tags.outputs.tag }}
             ${{ steps.tags.outputs.latest_tag && format('{0}/{1}:latest', env.DOCKERHUB_USER, env.IMAGE_NAME) || '' }}
             ${{ github.ref_name != 'main' && format('{0}/{1}:{2}', env.DOCKERHUB_USER, env.IMAGE_NAME, steps.usertag.outputs.user_tag) || '' }}
-            cache-from: type=gha
+
+          cache-from: type=gha
           cache-to: type=gha,mode=max
+
+          provenance: mode=max
