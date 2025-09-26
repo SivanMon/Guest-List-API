@@ -219,21 +219,31 @@ jobs:
         run: |
           set -euo pipefail
           branch="${GITHUB_REF_NAME}"
+          short="${GITHUB_SHA::7}"   # 7 chars; you can use 12 if you prefer
 
           case "$branch" in
-            main)    tag="latest" ;;
-            staging) tag="staging" ;;
-            dev)     tag="dev" ;;
+            main)
+              tag="latest"
+              ;;
+            staging)
+              tag="staging"
+              ;;
+            dev)
+              tag="dev"
+              ;;
             sivan-feature*|dvir-feature*|gili-feature*|sahar-feature*)
-                    # take the name before first '-' and add '-feature'
-                    prefix="${branch%%-*}"
-                    tag="${prefix}-feature"
-                    ;;
-            *)       tag="dev" ;;  # safe fallback
+              prefix="${branch%%-*}"       # sivan / dvir / gili / sahar
+              tag="${prefix}-feature-${short}"
+              ;;
+            *)
+              # fallback, stays simple
+              tag="dev"
+              ;;
           esac
 
-          echo "Selected tag: $tag"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Selected tag: $tag"
+
 
       - name: Assert env tag computed
         run: |
@@ -247,7 +257,7 @@ jobs:
           push: true
           tags: |
             giligalili/guestlistapi:${{ steps.envtag.outputs.tag }}
-            giligalili/guestlistapi:${{ github.sha }}
+            ${{ github.ref_name == 'main' && format('giligalili/guestlistapi:{0}', github.sha) || '' }}
 
           cache-from: type=gha
           cache-to: type=gha,mode=max
