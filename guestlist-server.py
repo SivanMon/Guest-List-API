@@ -150,6 +150,24 @@ def health_check():
     resp = _table.scan(Select="COUNT")
     return {'status': 'healthy', 'guests_count': resp.get("Count", 0)}, 200
 
+@app.route("/healthz", methods=["GET"])
+def healthz():
+    # process is up
+    return jsonify(status="ok"), 200
+
+@app.route("/readyz", methods=["GET"])
+def readyz():
+    # lightweight dependency check: DynamoDB describe table
+    try:
+        region = os.environ["AWS_DEFAULT_REGION"]
+        table_name = os.environ["DDB_TABLE"]
+        dynamodb = boto3.resource("dynamodb", region_name=region)
+        table = dynamodb.Table(table_name)
+        table.load()  # calls DescribeTable
+        return jsonify(status="ready"), 200
+    except Exception as e:
+        # don't expose secrets; 503 tells k8s it's not ready yet
+        return jsonify(status="not-ready", reason=str(e)[:200]), 503
 
 if __name__ == "__main__":
     app.run('0.0.0.0', 1111, debug=False)
