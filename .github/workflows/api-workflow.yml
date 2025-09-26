@@ -24,10 +24,14 @@ jobs:
           --health-cmd="curl -s http://localhost:8000/shell/ || exit 0"
           --health-interval=5s --health-timeout=2s --health-retries=20
 
+    # >>> Dummy creds + local config for ALL steps in this job <<<
     env:
       AWS_REGION: us-east-1
       DDB_ENDPOINT_URL: http://localhost:8000
       DDB_TABLE: guests-ci-${{ github.run_id }}
+      AWS_ACCESS_KEY_ID: localtest
+      AWS_SECRET_ACCESS_KEY: localtest
+      AWS_SESSION_TOKEN: localtest
 
     steps:
       - name: Checkout
@@ -36,13 +40,12 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # We need Python on the runner to run a small boto3 script (no AWS CLI).
-      - name: Setup Python
+      - name: Setup Python (for small boto3 script)
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install runner-side deps (boto3 + requests for curl-like debug)
+      - name: Install runner-side deps
         run: |
           python -m pip install --upgrade pip
           pip install boto3
@@ -67,19 +70,16 @@ jobs:
         run: |
           docker build -t $DOCKERHUB_USER/$IMAGE_NAME:test .
 
-      # ---- Create table in local DynamoDB without AWS CLI ----
+      # ---- Create table in local DynamoDB via boto3 (no AWS CLI) ----
       - name: Create DynamoDB table (local via boto3)
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          DDB_ENDPOINT_URL: ${{ env.DDB_ENDPOINT_URL }}
-          DDB_TABLE: ${{ env.DDB_TABLE }}
         run: |
           python - <<'PY'
           import os, time
           import boto3
-          region = os.environ["AWS_REGION"]
+          region   = os.environ["AWS_REGION"]
           endpoint = os.environ["DDB_ENDPOINT_URL"]
-          table = os.environ["DDB_TABLE"]
+          table    = os.environ["DDB_TABLE"]
+          # Dummy creds come from env; that's enough for DynamoDB Local
           ddb = boto3.client("dynamodb", region_name=region, endpoint_url=endpoint)
           try:
               ddb.create_table(
@@ -91,13 +91,10 @@ jobs:
               print(f"Created table {table}")
           except ddb.exceptions.ResourceInUseException:
               print(f"Table {table} already exists")
-
-          # poll until table is active (local responds immediately, but be safe)
           for _ in range(30):
-              desc = ddb.describe_table(TableName=table)
-              if desc["Table"]["TableStatus"] in ("ACTIVE", "UPDATING"):
+              if ddb.describe_table(TableName=table)["Table"]["TableStatus"] in ("ACTIVE","UPDATING"):
                   break
-              time.sleep(0.5)
+              time.sleep(0.2)
           print("Table ready.")
           PY
 
@@ -109,6 +106,9 @@ jobs:
             -e AWS_REGION="${AWS_REGION}" \
             -e DDB_TABLE="${DDB_TABLE}" \
             -e DDB_ENDPOINT_URL="${DDB_ENDPOINT_URL}" \
+            -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+            -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+            -e AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}" \
             $DOCKERHUB_USER/$IMAGE_NAME:test
 
           echo "Waiting for app to start..."
