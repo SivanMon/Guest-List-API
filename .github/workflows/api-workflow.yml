@@ -1,10 +1,10 @@
-name: Build and Test API (Local DynamoDB, no AWS CLI)
+name: Build and Test API (Local DynamoDB)
 
 on:
   push:
-    branches: [ main, dev, staging, '*-feature' ]
+    branches: [ dev, staging, '*-feature' ]
   pull_request:
-    branches: [ main, dev, staging ]
+    branches: [ main ]
 
 env:
   DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -24,14 +24,13 @@ jobs:
           --health-cmd="curl -s http://localhost:8000/shell/ || exit 0"
           --health-interval=5s --health-timeout=2s --health-retries=20
 
-    # >>> Dummy creds + local config for ALL steps in this job <<<
+    # for DynamoDB Local
     env:
       AWS_REGION: us-east-1
       DDB_ENDPOINT_URL: http://localhost:8000
       DDB_TABLE: guests-ci-${{ github.run_id }}
       AWS_ACCESS_KEY_ID: localtest
       AWS_SECRET_ACCESS_KEY: localtest
-      AWS_SESSION_TOKEN: localtest
 
     steps:
       - name: Checkout
@@ -48,29 +47,12 @@ jobs:
       - name: Install runner-side deps
         run: |
           python -m pip install --upgrade pip
-          pip install boto3
-
-      - name: Create image tag
-        id: tags
-        shell: bash
-        run: |
-          BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          COMMIT_SHA=${GITHUB_SHA::7}
-          DATE=$(date +%Y%m%d-%H%M%S)
-          CLEAN_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9]/-/g')
-          TAG="${CLEAN_BRANCH}-${DATE}-${COMMIT_SHA}"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
-          echo "clean_branch=${CLEAN_BRANCH}" >> $GITHUB_OUTPUT
-          if [ "$BRANCH_NAME" = "main" ]; then
-            echo "latest_tag=latest" >> $GITHUB_OUTPUT
-          fi
+          pip install -r requirements.txt
 
       - name: Build Docker image (test tag)
         run: |
           docker build -t $DOCKERHUB_USER/$IMAGE_NAME:test .
 
-      # ---- Create table in local DynamoDB via boto3 (no AWS CLI) ----
       - name: Create DynamoDB table (local via boto3)
         run: |
           python - <<'PY'
@@ -79,7 +61,6 @@ jobs:
           region   = os.environ["AWS_REGION"]
           endpoint = os.environ["DDB_ENDPOINT_URL"]
           table    = os.environ["DDB_TABLE"]
-          # Dummy creds come from env; that's enough for DynamoDB Local
           ddb = boto3.client("dynamodb", region_name=region, endpoint_url=endpoint)
           try:
               ddb.create_table(
@@ -114,7 +95,6 @@ jobs:
             -e DDB_ENDPOINT_URL="http://host.docker.internal:8000" \
             -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
             -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-            -e AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}" \
             $DOCKERHUB_USER/$IMAGE_NAME:test
 
           echo "Waiting for app to start..."
@@ -219,36 +199,26 @@ jobs:
         run: |
           set -euo pipefail
           branch="${GITHUB_REF_NAME}"
-          short="${GITHUB_SHA::7}"   # 7 chars; you can use 12 if you prefer
+          sha7="${GITHUB_SHA::7}"
 
           case "$branch" in
-            main)
-              tag="latest"
-              ;;
-            staging)
-              tag="staging"
-              ;;
-            dev)
-              tag="dev"
-              ;;
+            main)    tag="latest" ;;
+            staging) tag="staging" ;;
+            dev)     tag="dev" ;;
             sivan-feature*|dvir-feature*|gili-feature*|sahar-feature*)
-              prefix="${branch%%-*}"       # sivan / dvir / gili / sahar
-              tag="${prefix}-feature-${short}"
+              prefix="${branch%%-*}"   # sivan / dvir / gili / sahar
+              tag="${prefix}-feature-${sha7}"
               ;;
-            *)
-              # fallback, stays simple
-              tag="dev"
-              ;;
+            *) tag="dev" ;;
           esac
 
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "Selected tag: $tag"
-
+          echo "tag=$tag"   >> "$GITHUB_OUTPUT"
+          echo "sha7=$sha7" >> "$GITHUB_OUTPUT"
+          echo "Selected tag: $tag (sha7=$sha7)"
 
       - name: Assert env tag computed
         run: |
           test -n "${{ steps.envtag.outputs.tag }}" || (echo "ERROR: env tag is empty"; exit 1)
-
 
       - name: Push image to Docker Hub
         uses: docker/build-push-action@v6
@@ -257,9 +227,7 @@ jobs:
           push: true
           tags: |
             giligalili/guestlistapi:${{ steps.envtag.outputs.tag }}
-            ${{ github.ref_name == 'main' && format('giligalili/guestlistapi:{0}', github.sha) || '' }}
-
+            ${{ github.ref_name == 'main' && format('giligalili/guestlistapi:{0}', steps.envtag.outputs.sha7) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
           provenance: mode=max
