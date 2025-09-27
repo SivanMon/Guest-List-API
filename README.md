@@ -397,11 +397,11 @@ esac
     provenance: mode=max
 ```
 
-**Advanced Features:**
+**Push Strategy:**
+- **All Branches**: Push with computed environment tag
+- **Main Branch Only**: Additional SHA-based tag for version tracking
 - **GitHub Actions Cache**: Build layer caching for faster builds
-- **Conditional Tagging**: SHA tags only on main branch
 - **Provenance**: Security attestation and supply chain verification
-- **Multi-target**: Environment tag + SHA tag for main branch
 
 ### Pipeline Security & Best Practices
 
@@ -578,16 +578,128 @@ Built-in health checks for container orchestration:
 
 ---
 
-## 🤝 Team Contributions
+---
 
-This project was collaboratively developed by:
+## 🔄 API Repository CI/CD Pipeline
 
-- **Gili**: Project architecture, Flask API development, Docker configuration
-- **Sivan**: Frontend interface, validation logic, testing framework  
-- **Sahar**: DynamoDB integration, AWS configuration, CI/CD pipeline
-- **Dvir**: Documentation, error handling, security implementation
+### Overview
+Our API repository implements a complete CI/CD pipeline that automatically builds, tests, and publishes Docker images based on branch patterns and triggers.
 
-Each team member contributed to code review and deployment strategies.
+### Workflow File: `api-workflow.yml`
+
+**Name**: "Build and Test API (Local DynamoDB)"
+
+**Repository**: [Guest-List-API](https://github.com/giligalili/Guest-List-API)
+
+### Trigger Strategy
+```yaml
+on:
+  push:
+    branches: [ dev, staging, '*-feature' ]  # All dev, staging, and feature branches
+  pull_request:
+    branches: [ main ]                       # PRs targeting main branch
+```
+
+**Trigger Logic:**
+- **Feature Development**: Any branch matching `*-feature` pattern
+- **Environment Branches**: `dev` and `staging` branches  
+- **Integration Testing**: Pull requests to `main` branch
+- **No Automatic Main**: Main branch deployments handled by deployment repository
+
+### Pipeline Stages
+
+#### 1. **Environment & Service Setup**
+- **OS**: Ubuntu latest with Python 3.12
+- **DynamoDB Local**: Containerized database on port 8000
+- **Docker Buildx**: Advanced building capabilities
+- **System Tools**: jq for JSON processing
+
+#### 2. **Test Database Preparation**
+- **Unique Table Names**: `guests-ci-{github.run_id}` for isolation
+- **Schema Creation**: Matches production DynamoDB structure
+- **Health Waiting**: Ensures table is active before testing
+
+#### 3. **Application Testing**
+- **Docker Build**: Creates test image tagged as `:test`
+- **Container Deployment**: Runs with DynamoDB Local connection
+- **Health Validation**: 40-attempt startup verification
+- **API Testing**: Complete CRUD operation validation
+
+#### 4. **Docker Registry Publishing**
+- **Environment-based Tagging**: Branch name determines image tag
+- **Multi-platform Push**: Publishes to Docker Hub
+- **GitHub Actions Caching**: Optimizes build performance
+
+### Image Tagging Strategy
+
+Based on the actual workflow logic:
+
+```bash
+case "$branch" in
+  main)    tag="latest" ;;
+  staging) tag="staging" ;;  
+  dev)     tag="dev" ;;
+  sivan-feature*|dvir-feature*|gili-feature*|sahar-feature*)
+    prefix="${branch%%-*}"                    # Extract: sivan, dvir, gili, sahar
+    tag="${prefix}-feature-${sha7}"           # Result: gili-feature-abc1234
+    ;;
+  *) tag="dev" ;;                            # Fallback for other branches
+esac
+```
+
+**Published Images:**
+- `giligalili/guestlistapi:latest` ← main branch
+- `giligalili/guestlistapi:staging` ← staging branch  
+- `giligalili/guestlistapi:dev` ← dev branch
+- `giligalili/guestlistapi:gili-feature-abc1234` ← gili-feature branch
+- `giligalili/guestlistapi:sivan-feature-def5678` ← sivan-feature branch
+- etc.
+
+**Special Main Branch Handling:**
+```yaml
+tags: |
+  giligalili/guestlistapi:${{ steps.envtag.outputs.tag }}
+  ${{ github.ref_name == 'main' && format('giligalili/guestlistapi:{0}', steps.envtag.outputs.sha7) || '' }}
+```
+Main branch gets both `latest` AND a SHA-specific tag for version tracking.
+
+### Integration with Deployment Pipeline
+
+The API CI/CD connects with the deployment repository:
+
+1. **API Repository** builds and pushes images with predictable tags
+2. **Deploy Repository** queries Docker Hub API to find latest feature images
+3. **Deployment** uses resolved image tags for Kubernetes deployment
+
+**Example Flow:**
+```
+Developer pushes to gili-feature branch
+  ↓
+API Workflow triggers
+  ↓  
+Tests pass, image built: giligalili/guestlistapi:gili-feature-a1b2c3d
+  ↓
+Image pushed to Docker Hub  
+  ↓
+Developer triggers deployment workflow with environment=gili
+  ↓
+Deploy workflow queries Docker Hub for latest gili-feature-* tag
+  ↓
+Kubernetes deployment uses giligalili/guestlistapi:gili-feature-a1b2c3d
+```
+
+### Quality Gates
+
+**Before Publishing:**
+- ✅ All unit tests must pass
+- ✅ DynamoDB integration tests must succeed
+- ✅ Container health checks must validate
+- ✅ API endpoints must respond correctly
+
+**On Failure:**
+- 🚫 No image is published
+- 📋 Container logs are captured for debugging
+- ⚠️ Pipeline fails with clear error messages
 
 ---
 
