@@ -220,7 +220,6 @@ jobs:
 
           case "$branch" in
             main)    tag="latest" ;;
-            staging) tag="staging" ;;
             dev)     tag="dev" ;;
             sivan-feature*|dvir-feature*|gili-feature*|sahar-feature*)
               prefix="${branch%%-*}"   # sivan / dvir / gili / sahar
