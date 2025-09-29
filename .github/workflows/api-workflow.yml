@@ -247,3 +247,29 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
+      
+      - name: "Notify Deploy: plan (API push to dev or manual dev)"
+        if: >-
+          ${{
+            (github.event_name == 'push' && github.ref_name == 'dev') ||
+            (github.event_name == 'workflow_dispatch' && inputs.branch == 'dev')
+          }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.REPO_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/SivanMon/Guest-List-Deploy/dispatches \
+            -d '{"event_type":"deploy_plan","client_payload":{"environment":"dev"}}'
+
+      - name: "Notify Deploy: apply (API PR to main or manual main)"
+        if: >-
+          ${{
+            (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main') ||
+            (github.event_name == 'workflow_dispatch' && inputs.branch == 'main')
+          }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.REPO_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/SivanMon/Guest-List-Deploy/dispatches \
+            -d '{"event_type":"deploy_apply","client_payload":{"environment":"main"}}'
