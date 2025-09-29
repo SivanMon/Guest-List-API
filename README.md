@@ -1,4 +1,4 @@
-## 🎉 Guest List API
+# 🎉 Guest List API
 
 A production-ready Flask REST API for event guest management, built as our final DevSecOps project. This lightweight API handles guest registration with validation, integrates with DynamoDB for persistence, and includes a modern web interface.
 

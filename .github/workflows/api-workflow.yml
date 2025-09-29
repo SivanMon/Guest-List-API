@@ -226,8 +226,8 @@ jobs:
           context: .
           push: true
           tags: |
-            giligalili/guestlistapi:${{ steps.envtag.outputs.tag }}
-            ${{ github.ref_name == 'main' && format('giligalili/guestlistapi:{0}', steps.envtag.outputs.sha7) || '' }}
+            SivanMonshi/guestlistapi:${{ steps.envtag.outputs.tag }}
+            ${{ github.ref_name == 'main' && format('SivanMonshi/guestlistapi:{0}', steps.envtag.outputs.sha7) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
