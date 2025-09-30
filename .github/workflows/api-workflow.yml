@@ -10,7 +10,7 @@ on:
         required: true
         options: [sivan-feature, dvir-feature, gili-feature, sahar-feature, dev, main]
   push:
-    branches: [ dev ]
+    branches: [ dev, main ]
   pull_request:
     branches: [ main ]
 
@@ -237,6 +237,7 @@ jobs:
           test -n "${{ steps.envtag.outputs.tag }}" || (echo "ERROR: env tag is empty"; exit 1)
 
       - name: Push image to Docker Hub
+        if: ${{ github.event_name == 'push' }}
         uses: docker/build-push-action@v6
         with:
           context: .
