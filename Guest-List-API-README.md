@@ -249,20 +249,22 @@ Our GitHub Actions workflow (`api-workflow.yml`) provides comprehensive testing 
 ### Trigger Matrix
 
 | API Repository Event | Branch/Input | Docker Tag | Deploy Repository Action | Deploy Environment | Terraform Operation |
-|---------------------|-------------|------------|-------------------------|-------------------|-------------------|
+|---------------------|-------------|------------|--------------------------|-------------------|-------------------|
 | **Push** | `main` | `latest` + `{sha7}` | None | - | - |
-| **Push** | `dev` | `dev` | `repository_dispatch: deploy_plan` | `dev` | `terraform plan` |
-| **Pull Request** | → `main` | None | `repository_dispatch: deploy_apply` | `main` | `terraform apply` |
-| **Manual Dispatch** | `main` | `latest` | `repository_dispatch: deploy_apply` | `main` | `terraform apply` |
-| **Manual Dispatch** | `dev` | `dev` | `repository_dispatch: deploy_plan` | `dev` | `terraform plan` |
-| **Manual Dispatch** | `{student}-feature` | `{student}-feature-{sha7}` | None | - | - |
+| **Push** | `dev` | `dev` | `repository_dispatch:`<br/>`deploy_plan` | `dev` | `terraform plan` |
+| **Pull Request** | → `main` | None | `repository_dispatch:`<br/>`deploy_apply` | `main` | `terraform apply` |
+| **Manual Dispatch** | `main` | `latest` | `repository_dispatch:`<br/>`deploy_apply` | `main` | `terraform apply` |
+| **Manual Dispatch** | `staging` | `dev` | `repository_dispatch:`<br/>`deploy_apply` | `staging` | `terraform apply` |
+| **Manual Dispatch** | `dev` | `dev` | `repository_dispatch:`<br/>`deploy_plan` | `dev` | `terraform plan` |
+| **Manual Dispatch** | `{student}-feature` | `{student}-feature-`<br/>`{sha7}` | None | Individual env | Manual deployment |
 
 ### Cross-Repository Communication
 
 | API Trigger | Repository Dispatch Event | Deploy Workflow Trigger | Final Action |
-|-------------|--------------------------|------------------------|--------------|
+|-------------|---------------------------|-------------------------|--------------|
 | Push to `dev` | `deploy_plan` | `clean-terraform.yml` | Infrastructure planning |
 | Manual `dev` run | `deploy_plan` | `clean-terraform.yml` | Infrastructure planning |
+| Manual `staging` run | `deploy_apply` | `clean-terraform.yml` | Staging deployment |
 | PR to `main` | `deploy_apply` | `clean-terraform.yml` | Production deployment |
 | Manual `main` run | `deploy_apply` | `clean-terraform.yml` | Production deployment |
 
