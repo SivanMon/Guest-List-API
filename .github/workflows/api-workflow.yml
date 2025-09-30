@@ -1,8 +1,16 @@
 name: Build and Test API (Local DynamoDB)
 
 on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch name to build/test'
+        default: 'dev'
+        type: choice
+        required: true
+        options: [sivan-feature, dvir-feature, gili-feature, sahar-feature, dev, main]
   push:
-    branches: [ dev, staging, '*-feature' ]
+    branches: [ dev, main ]
   pull_request:
     branches: [ main ]
 
@@ -33,7 +41,16 @@ jobs:
       AWS_SECRET_ACCESS_KEY: localtest
 
     steps:
-      - name: Checkout
+      # For manual runs: checkout the branch provided as input
+      - name: Checkout (manual)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      # For push/PR runs: checkout the triggering ref as usual
+      - name: Checkout (push/PR)
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         uses: actions/checkout@v4
 
       - name: Setup Docker Buildx
@@ -198,12 +215,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch="${GITHUB_REF_NAME}"
+          branch="${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.ref_name }}"
           sha7="${GITHUB_SHA::7}"
 
           case "$branch" in
             main)    tag="latest" ;;
-            staging) tag="staging" ;;
             dev)     tag="dev" ;;
             sivan-feature*|dvir-feature*|gili-feature*|sahar-feature*)
               prefix="${branch%%-*}"   # sivan / dvir / gili / sahar
@@ -221,13 +237,40 @@ jobs:
           test -n "${{ steps.envtag.outputs.tag }}" || (echo "ERROR: env tag is empty"; exit 1)
 
       - name: Push image to Docker Hub
+        if: ${{ github.event_name == 'push' }}
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
             sivanmonshi/guestlistapi:${{ steps.envtag.outputs.tag }}
-            ${{ github.ref_name == 'main' && format('sivanmMonshi/guestlistapi:{0}', steps.envtag.outputs.sha7) || '' }}
+            ${{ github.ref_name == 'main' && format('sivanmonshi/guestlistapi:{0}', steps.envtag.outputs.sha7) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
+      
+      - name: "Notify Deploy: plan (API push to dev or manual dev)"
+        if: >-
+          ${{
+            (github.event_name == 'push' && github.ref_name == 'dev') ||
+            (github.event_name == 'workflow_dispatch' && inputs.branch == 'dev')
+          }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.REPO_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/SivanMon/Guest-List-Deploy/dispatches \
+            -d '{"event_type":"deploy_plan","client_payload":{"environment":"dev"}}'
+
+      - name: "Notify Deploy: apply (API PR to main or manual main)"
+        if: >-
+          ${{
+            (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main') ||
+            (github.event_name == 'workflow_dispatch' && inputs.branch == 'main')
+          }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token ${{ secrets.REPO_DISPATCH_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/SivanMon/Guest-List-Deploy/dispatches \
+            -d '{"event_type":"deploy_apply","client_payload":{"environment":"main"}}'
