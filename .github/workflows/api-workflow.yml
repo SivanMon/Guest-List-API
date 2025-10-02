@@ -245,6 +245,7 @@ jobs:
           tags: |
             sivanmonshi/guestlistapi:${{ steps.envtag.outputs.tag }}
             ${{ github.ref_name == 'main' && format('sivanmonshi/guestlistapi:{0}', steps.envtag.outputs.sha7) || '' }}
+            ${{ github.ref_name == 'dev'  && format('sivanmonshi/guestlistapi:dev-{0}', steps.envtag.outputs.sha7) || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: mode=max
